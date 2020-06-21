@@ -1,6 +1,8 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+#define M 3
+
 string HillCipher_Encode(string message,string key)
 {
     int n=message.size();
@@ -162,99 +164,128 @@ string RAIL_FENCE_DECRYPT(string cipher, int key)
     return result;
 }
 
-void getCofactor(int A[100][100], int temp[100][100], int p, int q, int n){
-    int i=0, j=0;
-    for(int row=0; row<n; row++){
-        for(int col=0; col<n; col++){
-            if(row!=p && col!=q){
-                temp[i][j++]=A[row][col];
-                if(j==n-1){
-                    j=0;
-                    i++;
-                }
-            }
-        }
-    }
-}
-int determinant(int A[100][100], int n){
-    int D=0;
-    if(n==1){
-        return A[0][0];
-    }
-    int temp[100][100];
-    int sign=1;
-    for(int f=0; f<n; f++){
-        getCofactor(A,temp,0,f,n);
-        D+=sign * A[0][f] * determinant(temp,n-1);
 
-        sign = - sign;
-    }
-    return D;
-}
-void adjoint(int A[100][100], int adj[100][100], int n){
-    if(n==1){
-        adj[0][0]=1;
-        return;
-    }
+int inverse(int b)
+{
+	int inv;
+	int q, r, r1 = 26, r2 = b, t, t1 = 0, t2 = 1;
 
-    int sign=1, temp[100][100];
-    for(int i=0; i<n; i++){
-        for(int j=0; j<n; j++){
-            getCofactor(A,temp,i,j,n);
-            sign=((i+j)%2==0)? 1: -1;
-            adj[j][i]=(sign)*(determinant(temp,n-1));
-        }
-    }
+	while (r2 > 0) {
+		q = r1 / r2;
+		r = r1 - q * r2;
+		r1 = r2;
+		r2 = r;
+
+		t = t1 - q * t2;
+		t1 = t2;
+		t2 = t;
+	}
+
+	if (r1 == 1) {
+		inv = t1;
+		if (inv < 0)
+			inv = inv + 26;
+		return inv;
+	}
+
+	return -1;
 }
 
-void getKeyMatrix(string key, int keyMatrix[100][100], int n){
+void inverseMatrix(int key[][3], int inv[][3])
+{
+	int C[3][3]; // matrix for cofactors of  key[][]
+	int A[3][3]; // matrix for adjoint of C[][]
+
+	C[0][0] = key[1][1] * key[2][2] - key[2][1] * key[1][2];
+	C[0][1] = -(key[1][0] * key[2][2] - key[2][0] * key[1][2]);
+	C[0][2] = key[1][0] * key[2][1] - key[1][1] * key[2][0];
+	C[1][0] = -(key[0][1] * key[2][2] - key[2][1] * key[0][2]);
+	C[1][1] = key[0][0] * key[2][2] - key[2][0] * key[0][2];
+	C[1][2] = -(key[0][0] * key[2][1] - key[2][0] * key[0][1]);
+	C[2][0] = key[0][1] * key[1][2] - key[0][2] * key[1][1];
+	C[2][1] = -(key[0][0] * key[1][2] - key[1][0] * key[0][2]);
+	C[2][2] = key[0][0] * key[1][1] - key[1][0] * key[0][1];
+
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			A[i][j] = C[j][i];
+		}
+	}
+
+	int det = key[0][0] * C[0][0] + key[0][1] * C[0][1] + key[0][2] * C[0][2];
+
+	if (det == 0 || det % 2 == 0 || det % 13 == 0) {
+        cout<<"The text cannot be encrypted. Take valid key"<<endl;
+
+
+	}
+
+	int invs = inverse(det);
+
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			inv[i][j] = A[i][j] * invs;
+		}
+	}
+
+	//cout<<"\nInverse of a Key-\n"<<endl;
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			if (inv[i][j] >= 0) {
+				inv[i][j] = inv[i][j] % 26;
+				//cout<<inv[i][j]<<" ";
+			}
+			else {
+				for (int x = 0;; x++) {
+					if (x * 26 + inv[i][j] > 0) {
+						inv[i][j] = x * 26 + inv[i][j];
+						break;
+					}
+				}
+				//cout<<inv[i][j]<<" ";
+			}
+		}
+		//cout<<endl;
+	}
+}
+
+
+string decrypt(string s, string key)
+{
+    int keyMatrix[3][3];
     int k=0;
-    for(int i=0; i<n; i++){
-        for(int j=0; j<n; j++){
+    //fill the KEYMATRIX with values of KEY
+    for(int i=0;i<3;i++)
+    {
+        for(int j=0;j<3;j++)
+        {
             keyMatrix[i][j]=key[k]%65;
             k++;
         }
     }
-}
-void inverse(int keyMatrix[100][100], int n){
-    int det= determinant(keyMatrix,n);
-    int adj[100][100];
-    adjoint(keyMatrix,adj,n);
+    int inv[3][3];
+	inverseMatrix(keyMatrix, inv);
+	string d = "";
+	k = 0;
+	int input[3];
 
-    for(int i=0; i<n; i++){
-        for(int j=0; j<n; j++){
-            keyMatrix[i][j]=adj[i][j]/det;
-        }
-    }
+	while (k < s.length()) {
+		input[0] = s[k++] - 65;
+		input[1] = s[k++] - 65;
+		input[2] = s[k++] - 65;
+
+		for (int i = 0; i < 3; i++) {
+			int decipher = 0;
+			for (int j = 0; j < 3; j++) {
+				decipher += inv[i][j] * input[j];
+			}
+			d += (decipher % 26) + 65;
+		}
+	}
+	return d;
 }
-void decrypt(int cipherMatrix[100][1], int keyMatrix[100][100], int messageVector[100][1], int n){
-    inverse(keyMatrix,n);
-    for(int i=0; i<n; i++){
-        for(int j=0; j<1; j++){
-            cipherMatrix[i][j]=0;
-            for(int x=0; x<n; x++){
-                cipherMatrix[i][j] += keyMatrix[i][x] * messageVector[x][j];
-            }
-            cipherMatrix[i][j]=cipherMatrix[i][j]%26;
-        }
-    }
-}
-void Hilldecode(string message, string key){
-    int keyMatrix[100][100];
-    int n= message.length();
-    getKeyMatrix(key, keyMatrix, n);
-    int messageVector[100][1];
-    for(int i=0; i<n; i++){
-        messageVector[i][0]=(message[i])%65;
-    }
-    int cipherMatrix[100][1];
-    decrypt(cipherMatrix,keyMatrix,messageVector,n);
-    string ciphertext;
-    for(int i=0; i<n; i++){
-        ciphertext += cipherMatrix[i][0] + 65;
-    }
-    cout<<"Decoded text after Hill Cipher decryption: "<<ciphertext;
-}
+
+
 
 
 
@@ -290,7 +321,7 @@ int main()
 
     //decoding of Hill Cipher
     cout<<"\n";
-    Hilldecode(Rail_Fence_Decoded_Text, key);
+    cout << "\nDecrypted Text: " << decrypt(Rail_Fence_Decoded_Text, key);
     cout<<"\n";
     return 0;
 }
